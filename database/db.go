@@ -5,39 +5,40 @@ import (
 
 	"github.com/boltdb/bolt"
 	ethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 const (
-	accountBalanceBucket = "account_balance_bucket"
+	accountBalanceBucket  = "account_balance_bucket"
 	globalStateRootBucket = "global_state_root_bucket"
 )
 
 type IDatabase interface {
-	StoreAccountBalance()
-	GetAccountBalance(chain, token string, address ethCommon.Address) *big.Int
+	InitializeDatabase() error
+	StoreAccountBalance(string, string, ethCommon.Address, *big.Int) error
+	GetAccountBalance(string, string, ethCommon.Address) *big.Int
 }
 
 type Database struct {
-	Path string 
-	db *bolt.DB
+	Path string
+	db   *bolt.DB
 }
 
-func NewDatabase(path string) *Database {
+func NewDatabase(path string) IDatabase {
 	newDatabase(path)
 	return &Database{
 		Path: path,
-		db: db,
+		db:   db,
 	}
 }
 
 // creates buckets for storing
 // 1. Account Balances
-// 2. Previous Global State root 
+// 2. Previous Global State root
 // 3. Current Global State rooot
 func (d *Database) InitializeDatabase() error {
-	var err error 
-	d.db.Update(func(tx *bolt.Tx) error {
-		_, err = tx.CreateBucketIfNotExists([]byte(accountBalanceBucket))
+	return d.db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists([]byte(accountBalanceBucket))
 		if err != nil {
 			return err
 		}
@@ -47,14 +48,47 @@ func (d *Database) InitializeDatabase() error {
 		}
 		return nil
 	})
-	return err
 }
 
-// store account information 
+func makeBalanceBucketKey(chain, token string, address ethCommon.Address) []byte {
+	return crypto.Keccak256([]byte(chain), []byte(token), address.Bytes())
+}
+
+// store account information
 // key: Hash(chain + token + address)
 // value: *big.Int
-func (d *Database) StoreAccountBalance() {}
+func (d *Database) StoreAccountBalance(chain, token string, address ethCommon.Address, value *big.Int) error {
+	return d.db.Update(func(tx *bolt.Tx) error {
+		balanceBucket := tx.Bucket([]byte(accountBalanceBucket))
+		if balanceBucket == nil {
+			return bolt.ErrBucketNotFound
+		}
+		key := makeBalanceBucketKey(chain, token, address)
+		err := balanceBucket.Put(key, value.Bytes())
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+}
 
-// get balance information of account account 
-func (d *Database) GetAccountBalance(chain, token string, address ethCommon.Address) *big.Int {return ethCommon.Big0}
+// get balance information of account account
+func (d *Database) GetAccountBalance(chain, token string, address ethCommon.Address) *big.Int {
+	balance := new(big.Int)
+	db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(accountBalanceBucket))
+		if bucket == nil {
+			return bolt.ErrBucketNotFound
+		}
+		key := makeBalanceBucketKey(chain, token, address)
 
+		value := bucket.Get(key)
+		if value == nil {
+			balance = ethCommon.Big0
+			return nil 
+		}
+		balance = balance.SetBytes(value)
+		return nil 
+	})
+	return balance
+}
