@@ -1,4 +1,4 @@
-package db
+package database
 
 import (
 	"encoding/binary"
@@ -8,19 +8,19 @@ import (
 	"github.com/boltdb/bolt"
 )
 
-var DB *bolt.DB
+var db *bolt.DB
 
-func NewDatabase(path string) {
+func newDatabase(path string) {
 	var err error
-	DB, err = bolt.Open(path, fs.FileMode(0600), nil)
+	db, err = bolt.Open(path, fs.FileMode(0600), nil)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func NewEntry(nameSpace, key, value []byte) error {
+func newEntry(nameSpace, key, value []byte) error {
 	var dbError error
-	DB.Update(func(tx *bolt.Tx) error {
+	db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists(nameSpace)
 		if err != nil {
 			dbError = err
@@ -34,9 +34,9 @@ func NewEntry(nameSpace, key, value []byte) error {
 	return dbError
 }
 
-func GetEntry(nameSpace, key []byte) ([]byte, error) {
+func getEntry(nameSpace, key []byte) ([]byte, error) {
 	var value []byte
-	DB.View(func(tx *bolt.Tx) error {
+	db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(nameSpace)
 		value = bucket.Get(key)
 		return nil
@@ -48,7 +48,7 @@ type KeyConstraints interface {
 	uint64 | *big.Int | ~string | ~[]byte
 }
 
-func ConvertToByte[K KeyConstraints](input K) []byte {
+func convertToByte[K KeyConstraints](input K) []byte {
 	var i interface{} = input
 	switch v := i.(type) {
 	case uint64:
@@ -66,20 +66,20 @@ func ConvertToByte[K KeyConstraints](input K) []byte {
 	}
 }
 
-func GetAllEntries(namespace []byte) [][]byte{
+func getAllEntries(namespace []byte) [][]byte {
 	var entries [][]byte
-	DB.View(func(tx *bolt.Tx) error {
+	db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(namespace)
 		cursor := bucket.Cursor()
 
 		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
 			entries = append(entries, v)
 		}
-		return nil 
+		return nil
 	})
 	return entries
 }
 
-func CloseDB() error {
-	return DB.Close()
+func closeDB() error {
+	return db.Close()
 }
