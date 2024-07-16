@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io/fs"
 	"math/big"
 	"os"
@@ -70,4 +71,29 @@ func TestConvertToByte(t *testing.T) {
 
 	byteValue := []byte{1, 2, 3}
 	assert.Equal(t, byteValue, ConvertToByte(byteValue))
+}
+
+func TestGetAllEntries(t *testing.T) {
+	var err error
+	DB, err = bolt.Open(dbPath, fs.FileMode(0600), nil)
+	defer cleanup()
+	assert.NoError(t, err)
+	nameSpace := []byte("newNamespace")
+	key := []byte("key1")
+	value := []byte("value1")
+
+	key1 := []byte("key")
+	value1 := []byte("value")
+
+	err = NewEntry(nameSpace, key, value)
+	assert.NoError(t, err)
+
+	err = NewEntry(nameSpace, key1, value1)
+	assert.NoError(t, err)
+
+	dbValue := GetAllEntries(nameSpace)
+
+	for _, v := range dbValue {
+		fmt.Println(string(v))
+	}
 }

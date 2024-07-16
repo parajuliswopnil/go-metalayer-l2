@@ -66,6 +66,20 @@ func ConvertToByte[K KeyConstraints](input K) []byte {
 	}
 }
 
+func GetAllEntries(namespace []byte) [][]byte{
+	var entries [][]byte
+	DB.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(namespace)
+		cursor := bucket.Cursor()
+
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			entries = append(entries, v)
+		}
+		return nil 
+	})
+	return entries
+}
+
 func CloseDB() error {
 	return DB.Close()
 }
