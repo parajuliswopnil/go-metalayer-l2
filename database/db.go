@@ -4,13 +4,26 @@ import (
 	"math/big"
 
 	"github.com/boltdb/bolt"
+	"github.com/cedro-finance/metalayer-sequencer/merkle"
 	ethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 const (
 	accountBalanceBucket  = "account_balance_bucket"
 	globalStateRootBucket = "global_state_root_bucket"
 )
+
+var (
+	accountLeaf  = make(map[string][]byte) // stores the leaf of account which is important to get the storage proof
+	accountProof = make(map[string][]*merkle.Proof)
+)
+
+type BalanceStorageRootError struct{}
+
+func (balErr *BalanceStorageRootError) Error() string {
+	return "Balance Storage Root Error"
+}
 
 type IDatabase interface {
 	InitializeDatabase() error
@@ -102,8 +115,26 @@ func (d *Database) getBalanceStorageLeaves() ([][]byte, error) {
 		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
 			leaf := makeMerkleLeaves(k, v)
 			leaves = append(leaves, leaf)
+			accountLeaf[hexutil.Encode(k)] = leaf
 		}
 		return nil
 	})
 	return leaves, err
+}
+
+func (d *Database) GetGlobalStateRoot() ([]byte, error) {
+	leaves, err := d.getBalanceStorageLeaves()
+	if err != nil {
+		return nil, &BalanceStorageRootError{}
+	}
+	leafNodes := merkle.MakeNodes(leaves)
+	root := merkle.MakeMerkleTree(leafNodes)
+	for i, v := range leafNodes {
+		accountProof[hexutil.Encode(v.Hash)] = merkle.CalculateProof(leafNodes[i])
+	}
+	return root.Hash, err
+}
+
+func (d *Database) VerifyMerkleProofForAccountBalance(accountLeaf, root []byte, proof []*merkle.Proof) bool {
+	return merkle.VerifyProof(accountLeaf, root, proof)
 }
