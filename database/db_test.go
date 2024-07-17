@@ -18,7 +18,7 @@ func TestNewDatabase(t *testing.T) {
 }
 
 func TestInitializeDatabase(t *testing.T) {
-	var err error 
+	var err error
 	db, err = bolt.Open(dbPath, fs.FileMode(0600), nil)
 	defer cleanup()
 	assert.NoError(t, err)
@@ -34,12 +34,12 @@ func TestInitializeDatabase(t *testing.T) {
 		assert.NotNil(t, balanceBucket)
 		globalStateRootBucket := tx.Bucket([]byte(globalStateRootBucket))
 		assert.NotNil(t, globalStateRootBucket)
-		return nil 
+		return nil
 	})
 }
 
 func TestStoreAccountBalance(t *testing.T) {
-	var err error 
+	var err error
 	db, err = bolt.Open(dbPath, fs.FileMode(0600), nil)
 	defer cleanup()
 	assert.NoError(t, err)
@@ -56,7 +56,7 @@ func TestStoreAccountBalance(t *testing.T) {
 }
 
 func TestGetAccountBalance(t *testing.T) {
-	var err error 
+	var err error
 	db, err = bolt.Open(dbPath, fs.FileMode(0600), nil)
 	defer cleanup()
 	assert.NoError(t, err)

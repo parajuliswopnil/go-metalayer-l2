@@ -5,7 +5,6 @@ import (
 
 	"github.com/boltdb/bolt"
 	ethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 const (
@@ -50,10 +49,6 @@ func (d *Database) InitializeDatabase() error {
 	})
 }
 
-func makeBalanceBucketKey(chain, token string, address ethCommon.Address) []byte {
-	return crypto.Keccak256([]byte(chain), []byte(token), address.Bytes())
-}
-
 // store account information
 // key: Hash(chain + token + address)
 // value: *big.Int
@@ -85,10 +80,30 @@ func (d *Database) GetAccountBalance(chain, token string, address ethCommon.Addr
 		value := bucket.Get(key)
 		if value == nil {
 			balance = ethCommon.Big0
-			return nil 
+			return nil
 		}
 		balance = balance.SetBytes(value)
-		return nil 
+		return nil
 	})
 	return balance
+}
+
+func (d *Database) getBalanceStorageLeaves() ([][]byte, error) {
+	var leaves [][]byte
+	_ = leaves
+	err := db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(accountBalanceBucket))
+		if bucket == nil {
+			return bolt.ErrBucketNotFound
+		}
+
+		cursor := bucket.Cursor()
+
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			leaf := makeMerkleLeaves(k, v)
+			leaves = append(leaves, leaf)
+		}
+		return nil
+	})
+	return leaves, err
 }
